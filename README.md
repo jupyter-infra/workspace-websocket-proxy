@@ -8,7 +8,6 @@ Accepts incoming WebSocket connections and bridges them to a TCP server (the rem
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 
-TBD

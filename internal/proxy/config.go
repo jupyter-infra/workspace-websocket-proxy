@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2026 Jupyter Infrastructure
+Copyright (c) Amazon Web Services
 Distributed under the terms of the MIT license
 */
 
@@ -46,7 +46,7 @@ type Config struct {
 
 // LoadConfig reads configuration from environment variables with sensible defaults.
 func LoadConfig() *Config {
-	return &Config{
+	config := &Config{
 		ListenAddr:           getEnv("LISTEN_ADDR", ":8080"),
 		TargetHost:           getEnv("TARGET_HOST", "127.0.0.1"),
 		TargetPort:           getEnv("TARGET_PORT", "2222"),
@@ -57,6 +57,13 @@ func LoadConfig() *Config {
 		RevalidationInterval: getDurationEnv("REVALIDATION_INTERVAL", 5*time.Minute),
 		RevalidationEndpoint: getEnv("REVALIDATION_ENDPOINT", ""),
 	}
+
+	// Validate port is a valid number
+	if port, err := strconv.Atoi(config.TargetPort); err != nil || port < 1 || port > 65535 {
+		panic(fmt.Sprintf("TARGET_PORT must be a valid port number (1-65535), got: %s", config.TargetPort))
+	}
+
+	return config
 }
 
 // TargetAddr returns the full target address in host:port format.

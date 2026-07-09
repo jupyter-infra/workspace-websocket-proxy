@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2026 Jupyter Infrastructure
+Copyright (c) Amazon Web Services
 Distributed under the terms of the MIT license
 */
 

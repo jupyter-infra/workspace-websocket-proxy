@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2026 Jupyter Infrastructure
+Copyright (c) Amazon Web Services
 Distributed under the terms of the MIT license
 */
 
@@ -171,7 +171,7 @@ func (s *Session) pingLoop(ctx context.Context, bridge *Bridge, done chan struct
 			return
 		case <-ticker.C:
 			if err := bridge.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
-				s.logger.V(1).Info("Ping failed", "error", err)
+				s.logger.Error(err, "Ping failed, closing connection")
 				s.metrics.ConnectionErrors.WithLabelValues("ping_failed").Inc()
 				s.cancel()
 				return

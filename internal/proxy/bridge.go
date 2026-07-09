@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2026 Jupyter Infrastructure
+Copyright (c) Amazon Web Services
 Distributed under the terms of the MIT license
 */
 
@@ -17,7 +17,12 @@ import (
 
 const (
 	// writeWait is the time allowed to write a message to the peer.
+	// This also bounds how long the write mutex can be held.
 	writeWait = 10 * time.Second
+
+	// tcpReadBufferSize is the size of the buffer used when reading from the TCP connection.
+	// 32KB balances memory usage and syscall overhead for typical SSH traffic.
+	tcpReadBufferSize = 32 * 1024
 )
 
 // Bridge handles bidirectional data copy between a WebSocket connection and a TCP connection.
@@ -68,7 +73,6 @@ func (b *Bridge) Run() error {
 }
 
 // WriteMessage writes a WebSocket message with proper write deadline and mutex.
-// Safe to call concurrently with reads but serialized with other writes.
 func (b *Bridge) WriteMessage(messageType int, data []byte) error {
 	b.writeMu.Lock()
 	defer b.writeMu.Unlock()
@@ -112,7 +116,7 @@ func (b *Bridge) copyWSToTCP() error {
 
 // copyTCPToWS reads from TCP and writes as WebSocket binary frames.
 func (b *Bridge) copyTCPToWS() error {
-	buf := make([]byte, 32*1024) // 32KB buffer
+	buf := make([]byte, tcpReadBufferSize)
 
 	for {
 		n, err := b.tcp.Read(buf)

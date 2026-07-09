@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24 AS builder
+FROM golang:1.26 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -29,7 +29,7 @@ USER 65532:65532
 # Expose proxy port
 EXPOSE 8080
 
-# Set environment variables
+# Defaults (overridden by pod spec)
 ENV LISTEN_ADDR=:8080 \
     TARGET_HOST=127.0.0.1 \
     TARGET_PORT=2222 \
