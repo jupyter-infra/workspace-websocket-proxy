@@ -6,6 +6,9 @@ TAG ?= latest
 CONTAINER_TOOL ?= finch
 BUILD_OPTS :=
 
+# Linter version — keep in sync with CI
+GOLANGCI_LINT_VERSION ?= v2.4.0
+
 ifeq ($(CONTAINER_TOOL),finch)
   export KIND_EXPERIMENTAL_PROVIDER=finch
   export GOPROXY=direct
@@ -15,11 +18,15 @@ endif
 # Binary name
 BINARY := ws-proxy
 
-# Go parameters
-GOBIN=$(shell go env GOPATH)/bin
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
 .PHONY: all
 all: build
+
+.PHONY: release
+release: build lint test ## Run all checks required before PR submission.
 
 ##@ General
 
@@ -30,7 +37,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: deps
-deps: ## Download dependencies
+deps: ## Download dependencies.
 	go mod download
 	go mod tidy
 
@@ -43,12 +50,12 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: fmt vet ## Run tests.
-	go test -race -coverprofile=coverage.out ./...
+test: fmt vet ## Run unit tests.
+	go test -race -coverprofile=coverage.out ./internal/...
 
 .PHONY: test-verbose
-test-verbose: fmt vet ## Run tests with verbose output.
-	go test -race -v -coverprofile=coverage.out ./...
+test-verbose: fmt vet ## Run unit tests with verbose output.
+	go test -race -v -coverprofile=coverage.out ./internal/...
 
 .PHONY: lint
 lint: ## Run golangci-lint linter.
@@ -57,9 +64,6 @@ lint: ## Run golangci-lint linter.
 .PHONY: lint-fix
 lint-fix: ## Run golangci-lint linter and perform fixes.
 	golangci-lint run --fix
-
-.PHONY: verify
-verify: fmt vet lint test ## Run all checks (fmt, vet, lint, test).
 
 ##@ Build
 
@@ -83,6 +87,44 @@ docker-push: ## Push container image.
 
 .PHONY: docker-build-push
 docker-build-push: docker-build docker-push ## Build and push container image.
+
+##@ E2E Testing
+
+KIND_CLUSTER ?= ws-proxy-e2e
+E2E_IMAGE ?= jupyter-k8s-ws-proxy:test
+
+.PHONY: setup-test-e2e
+setup-test-e2e: docker-build ## Create Kind cluster and load proxy image for E2E tests.
+	@command -v kind >/dev/null 2>&1 || { echo "kind is not installed"; exit 1; }
+	@case "$$(kind get clusters)" in \
+		*"$(KIND_CLUSTER)"*) \
+			echo "Deleting existing Kind cluster '$(KIND_CLUSTER)'..."; \
+			kind delete cluster --name $(KIND_CLUSTER) ;; \
+	esac
+	@echo "Creating Kind cluster '$(KIND_CLUSTER)'..."
+	@kind create cluster --name $(KIND_CLUSTER)
+	@echo "Loading proxy image into Kind..."
+	@$(CONTAINER_TOOL) tag $(IMG) $(E2E_IMAGE)
+	@$(CONTAINER_TOOL) save $(E2E_IMAGE) -o /tmp/ws-proxy-e2e.tar
+	@kind load image-archive /tmp/ws-proxy-e2e.tar --name $(KIND_CLUSTER)
+	@rm -f /tmp/ws-proxy-e2e.tar
+	@echo "E2E cluster ready."
+
+.PHONY: test-e2e
+test-e2e: ## Run E2E tests (requires setup-test-e2e to have been run).
+	KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -timeout 10m -ginkgo.v
+
+.PHONY: test-e2e-focus
+test-e2e-focus: ## Run specific E2E test. Usage: make test-e2e-focus FOCUS="should proxy"
+	@if [ -z "$(FOCUS)" ]; then echo "Error: FOCUS is required. Usage: make test-e2e-focus FOCUS=\"should proxy\""; exit 1; fi
+	KIND_CLUSTER=$(KIND_CLUSTER) go test -tags=e2e ./test/e2e/ -v -timeout 10m -ginkgo.v -ginkgo.focus="$(FOCUS)"
+
+.PHONY: test-e2e-full
+test-e2e-full: setup-test-e2e test-e2e cleanup-test-e2e ## Full E2E: setup, run, cleanup.
+
+.PHONY: cleanup-test-e2e
+cleanup-test-e2e: ## Delete the Kind cluster used for E2E tests.
+	kind delete cluster --name $(KIND_CLUSTER) || true
 
 ##@ Clean
 

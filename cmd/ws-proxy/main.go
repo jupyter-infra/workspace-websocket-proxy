@@ -3,6 +3,7 @@ Copyright (c) Amazon Web Services
 Distributed under the terms of the MIT license
 */
 
+// Package main provides the entry point for the WebSocket proxy sidecar.
 package main
 
 import (
@@ -11,10 +12,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/jupyter-infra/workspace-websocket-proxy/internal/proxy"
 	"go.uber.org/zap"
@@ -23,9 +24,14 @@ import (
 func main() {
 	// Health check mode for Kubernetes exec probes.
 	if len(os.Args) > 1 && os.Args[1] == "--healthcheck" {
-		port := os.Getenv("LISTEN_ADDR")
-		if port == "" {
-			port = ":8080"
+		addr := os.Getenv("LISTEN_ADDR")
+		if addr == "" {
+			addr = ":8080"
+		}
+		// Extract port from addr (handles ":8080", "0.0.0.0:8080", etc.)
+		port := addr
+		if idx := strings.LastIndex(addr, ":"); idx >= 0 {
+			port = addr[idx:]
 		}
 		client := &http.Client{Timeout: 2 * time.Second}
 		resp, err := client.Get(fmt.Sprintf("http://127.0.0.1%s/health", port))
@@ -46,10 +52,12 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	_ = logr.NewContext(ctx, logger)
-
 	// Load configuration
-	config := proxy.LoadConfig()
+	config, err := proxy.LoadConfig()
+	if err != nil {
+		logger.Error(err, "Invalid configuration")
+		os.Exit(1)
+	}
 
 	// Create and start server
 	server := proxy.NewServer(config, logger)

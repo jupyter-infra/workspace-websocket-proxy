@@ -102,7 +102,7 @@ func TestTCPDialFailure(t *testing.T) {
 	}
 	defer ws.Close()
 
-	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	_, _, err = ws.ReadMessage()
 	if err == nil {

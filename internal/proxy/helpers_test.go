@@ -63,5 +63,5 @@ func startEchoTCPServer(t *testing.T) (string, func()) {
 		}
 	}()
 
-	return listener.Addr().String(), func() { listener.Close() }
+	return listener.Addr().String(), func() { _ = listener.Close() }
 }

@@ -48,7 +48,8 @@ type Config struct {
 }
 
 // LoadConfig reads configuration from environment variables with sensible defaults.
-func LoadConfig() *Config {
+// Returns an error if any value is invalid.
+func LoadConfig() (*Config, error) {
 	config := &Config{
 		ListenAddr:           getEnv("LISTEN_ADDR", ":8080"),
 		TargetHost:           getEnv("TARGET_HOST", "127.0.0.1"),
@@ -62,17 +63,18 @@ func LoadConfig() *Config {
 		RevalidationEndpoint: getEnv("REVALIDATION_ENDPOINT", ""),
 	}
 
-	// Validate port range
 	if config.TargetPort < 1 || config.TargetPort > 65535 {
-		panic(fmt.Sprintf("TARGET_PORT must be between 1 and 65535, got: %d", config.TargetPort))
+		return nil, fmt.Errorf("TARGET_PORT must be between 1 and 65535, got: %d", config.TargetPort)
 	}
 
-	// Validate ping interval < ping timeout (gorilla best practice)
 	if config.PingInterval >= config.PingTimeout {
-		panic(fmt.Sprintf("PING_INTERVAL (%s) must be less than PING_TIMEOUT (%s)", config.PingInterval, config.PingTimeout))
+		return nil, fmt.Errorf(
+			"PING_INTERVAL (%s) must be less than PING_TIMEOUT (%s)",
+			config.PingInterval, config.PingTimeout,
+		)
 	}
 
-	return config
+	return config, nil
 }
 
 // TargetAddr returns the full target address in host:port format.

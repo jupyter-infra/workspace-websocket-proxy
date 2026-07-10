@@ -11,7 +11,10 @@ import (
 )
 
 func TestConfigDefaults(t *testing.T) {
-	config := LoadConfig()
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if config.ListenAddr != ":8080" {
 		t.Errorf("expected :8080, got %s", config.ListenAddr)
@@ -38,5 +41,22 @@ func TestConfigTargetAddr(t *testing.T) {
 	expected := "localhost:3333"
 	if config.TargetAddr() != expected {
 		t.Errorf("expected %s, got %s", expected, config.TargetAddr())
+	}
+}
+
+func TestConfigInvalidPort(t *testing.T) {
+	t.Setenv("TARGET_PORT", "99999")
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("expected error for invalid port")
+	}
+}
+
+func TestConfigPingIntervalExceedsTimeout(t *testing.T) {
+	t.Setenv("PING_INTERVAL", "60s")
+	t.Setenv("PING_TIMEOUT", "30s")
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("expected error when ping interval >= ping timeout")
 	}
 }
