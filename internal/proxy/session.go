@@ -7,7 +7,6 @@ package proxy
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,7 +24,6 @@ const (
 type SessionManager struct {
 	maxConnections int32
 	active         atomic.Int32
-	mu             sync.Mutex
 }
 
 // NewSessionManager creates a new SessionManager with the given concurrency limit.
@@ -96,6 +94,9 @@ func (s *Session) Run(ctx context.Context) error {
 	s.ws.SetPongHandler(func(string) error {
 		return s.ws.SetReadDeadline(time.Now().Add(s.config.PingTimeout))
 	})
+
+	// Limit incoming message size to prevent memory exhaustion.
+	s.ws.SetReadLimit(s.config.ReadLimit)
 
 	// Set initial read deadline — if no pong arrives within PingTimeout, reads will fail.
 	if err := s.ws.SetReadDeadline(time.Now().Add(s.config.PingTimeout)); err != nil {
