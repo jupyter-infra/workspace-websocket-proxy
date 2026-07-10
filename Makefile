@@ -7,7 +7,7 @@ CONTAINER_TOOL ?= finch
 BUILD_OPTS :=
 
 # Linter version — keep in sync with CI
-GOLANGCI_LINT_VERSION ?= v2.4.0
+GOLANGCI_LINT_VERSION ?= v2.12.2
 
 ifeq ($(CONTAINER_TOOL),finch)
   export KIND_EXPERIMENTAL_PROVIDER=finch
