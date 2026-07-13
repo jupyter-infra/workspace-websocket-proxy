@@ -40,8 +40,10 @@ jobs:
 
       - name: Resolve short SHA
         id: sha
+        env:
+          INPUT_SHA: ${{ inputs.short_sha }}
         run: |
-          SHA="${{ inputs.short_sha }}"
+          SHA="$INPUT_SHA"
           if [ -z "$SHA" ]; then
             SHA=$(git rev-parse --short HEAD)
           fi

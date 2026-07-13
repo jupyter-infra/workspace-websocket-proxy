@@ -84,6 +84,8 @@ var upgrader = websocket.Upgrader{
 }
 
 // handleWebSocket upgrades the HTTP connection and starts a proxied session.
+// Precondition: authentication is handled externally by Traefik ForwardAuth
+// before traffic reaches this handler. The proxy performs no auth itself.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	logger := s.logger.WithValues("remoteAddr", r.RemoteAddr)
 

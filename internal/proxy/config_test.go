@@ -60,3 +60,11 @@ func TestConfigPingIntervalExceedsTimeout(t *testing.T) {
 		t.Error("expected error when ping interval >= ping timeout")
 	}
 }
+
+func TestConfigInvalidReadLimit(t *testing.T) {
+	t.Setenv("READ_LIMIT", "-1")
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("expected error for invalid read limit")
+	}
+}

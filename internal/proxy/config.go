@@ -74,6 +74,10 @@ func LoadConfig() (*Config, error) {
 		)
 	}
 
+	if config.ReadLimit < 1024 || config.ReadLimit > 10*1024*1024 {
+		return nil, fmt.Errorf("READ_LIMIT must be between 1024 and 10485760, got: %d", config.ReadLimit)
+	}
+
 	return config, nil
 }
 

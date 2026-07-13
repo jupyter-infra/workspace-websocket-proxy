@@ -9,14 +9,6 @@ on:
       short_sha:
         required: true
         type: string
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Image tag to promote (e.g. v0.1.0)'
-        required: true
-      short_sha:
-        description: 'Short SHA tag to promote'
-        required: true
 
 env:
   STAGING_REGISTRY: ghcr.io/jupyter-infra/staging
