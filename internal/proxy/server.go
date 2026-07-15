@@ -72,7 +72,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"ok","activeConnections":%d}`, s.sessionManager.ActiveCount())
+	_, _ = fmt.Fprintf(w, `{"status":"ok","activeConnections":%d}`, s.sessionManager.ActiveCount())
 }
 
 // upgrader configures the WebSocket upgrade.
@@ -84,6 +84,8 @@ var upgrader = websocket.Upgrader{
 }
 
 // handleWebSocket upgrades the HTTP connection and starts a proxied session.
+// Precondition: authentication is handled externally by Traefik ForwardAuth
+// before traffic reaches this handler. The proxy performs no auth itself.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	logger := s.logger.WithValues("remoteAddr", r.RemoteAddr)
 

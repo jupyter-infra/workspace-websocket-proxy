@@ -76,7 +76,9 @@ func (b *Bridge) Run() error {
 func (b *Bridge) WriteMessage(messageType int, data []byte) error {
 	b.writeMu.Lock()
 	defer b.writeMu.Unlock()
-	b.ws.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := b.ws.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		return err
+	}
 	return b.ws.WriteMessage(messageType, data)
 }
 

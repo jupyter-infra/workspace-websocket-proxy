@@ -8,6 +8,7 @@ package proxy
 import (
 	"net"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,7 +19,8 @@ func TestWebSocketBridge(t *testing.T) {
 	tcpAddr, cleanupTCP := startEchoTCPServer(t)
 	defer cleanupTCP()
 
-	_, port, _ := net.SplitHostPort(tcpAddr)
+	_, portStr, _ := net.SplitHostPort(tcpAddr)
+	port, _ := strconv.Atoi(portStr)
 
 	config := testConfig()
 	config.TargetHost = "127.0.0.1"

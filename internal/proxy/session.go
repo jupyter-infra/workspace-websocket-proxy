@@ -7,7 +7,6 @@ package proxy
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,7 +24,6 @@ const (
 type SessionManager struct {
 	maxConnections int32
 	active         atomic.Int32
-	mu             sync.Mutex
 }
 
 // NewSessionManager creates a new SessionManager with the given concurrency limit.
@@ -69,7 +67,13 @@ type Session struct {
 }
 
 // NewSession creates a new session for a WebSocket connection.
-func NewSession(ws *websocket.Conn, config *Config, metrics *Metrics, logger logr.Logger, revalidator Revalidator) *Session {
+func NewSession(
+	ws *websocket.Conn,
+	config *Config,
+	metrics *Metrics,
+	logger logr.Logger,
+	revalidator Revalidator,
+) *Session {
 	return &Session{
 		ws:          ws,
 		config:      config,
@@ -97,6 +101,9 @@ func (s *Session) Run(ctx context.Context) error {
 		return s.ws.SetReadDeadline(time.Now().Add(s.config.PingTimeout))
 	})
 
+	// Limit incoming message size to prevent memory exhaustion.
+	s.ws.SetReadLimit(s.config.ReadLimit)
+
 	// Set initial read deadline — if no pong arrives within PingTimeout, reads will fail.
 	if err := s.ws.SetReadDeadline(time.Now().Add(s.config.PingTimeout)); err != nil {
 		return err
@@ -122,13 +129,18 @@ func (s *Session) Run(ctx context.Context) error {
 	go s.pingLoop(ctx, bridge, pingDone)
 	defer func() { <-pingDone }()
 
+	// TODO(revalidation): Start periodic re-validation loop here.
+	// When implemented, spawn a goroutine that calls s.revalidator.Revalidate(ctx)
+	// every s.config.RevalidationInterval. If it returns an error, call s.cancel()
+	// to terminate the session (user access revoked).
+
 	// Start max duration timer
 	maxDurationTimer := time.AfterFunc(s.config.MaxSessionDuration, func() {
 		s.logger.Info("Max session duration reached, closing connection",
 			"duration", s.config.MaxSessionDuration)
 		s.metrics.ConnectionErrors.WithLabelValues("max_duration").Inc()
 		// Send close frame then cancel context after grace period
-		bridge.WriteControl(
+		_ = bridge.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "session duration limit reached"),
 			time.Now().Add(writeWait),
@@ -151,8 +163,8 @@ func (s *Session) Run(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		// Context cancelled (max duration or external termination)
-		s.ws.Close()
-		tcp.Close()
+		_ = s.ws.Close()
+		_ = tcp.Close()
 		return ctx.Err()
 	}
 }

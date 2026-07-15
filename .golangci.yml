@@ -21,6 +21,14 @@ linters:
     - unparam
     - unused
   settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (*github.com/gorilla/websocket.Conn).Close
+        - (net.Conn).Close
+        - (*net.TCPListener).Close
+        - (*os.File).Close
+        - (fmt).Fprintf
     revive:
       rules:
         - name: comment-spacings
@@ -33,6 +41,7 @@ linters:
         - name: increment-decrement
         - name: var-declaration
         - name: package-comments
+          disabled: true
         - name: unexported-naming
   exclusions:
     generated: lax
@@ -40,10 +49,8 @@ linters:
       - linters:
           - dupl
           - lll
-        path: internal/proxy/*
-      - linters:
-          - lll
-        path: cmd/*
+          - goconst
+        path: ".*_test\\.go"
     paths:
       - third_party$
       - builtin$

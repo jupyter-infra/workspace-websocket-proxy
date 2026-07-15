@@ -21,7 +21,7 @@ type Config struct {
 	TargetHost string
 
 	// TargetPort is the TCP port to proxy to.
-	TargetPort string
+	TargetPort int
 
 	// MaxSessionDuration is the maximum lifetime of a single connection.
 	// After this duration, the connection is closed regardless of activity.
@@ -37,6 +37,9 @@ type Config struct {
 	// New connections are rejected with 503 when at capacity.
 	MaxConnections int
 
+	// ReadLimit is the maximum size in bytes of incoming WebSocket messages.
+	ReadLimit int64
+
 	// RevalidationInterval is how often to re-validate the session (future use).
 	RevalidationInterval time.Duration
 
@@ -45,30 +48,42 @@ type Config struct {
 }
 
 // LoadConfig reads configuration from environment variables with sensible defaults.
-func LoadConfig() *Config {
+// Returns an error if any value is invalid.
+func LoadConfig() (*Config, error) {
 	config := &Config{
 		ListenAddr:           getEnv("LISTEN_ADDR", ":8080"),
 		TargetHost:           getEnv("TARGET_HOST", "127.0.0.1"),
-		TargetPort:           getEnv("TARGET_PORT", "2222"),
+		TargetPort:           getIntEnv("TARGET_PORT", 2222),
 		MaxSessionDuration:   getDurationEnv("MAX_SESSION_DURATION", 12*time.Hour),
 		PingInterval:         getDurationEnv("PING_INTERVAL", 30*time.Second),
 		PingTimeout:          getDurationEnv("PING_TIMEOUT", 60*time.Second),
 		MaxConnections:       getIntEnv("MAX_CONNECTIONS", 10),
+		ReadLimit:            int64(getIntEnv("READ_LIMIT", 65536)),
 		RevalidationInterval: getDurationEnv("REVALIDATION_INTERVAL", 5*time.Minute),
 		RevalidationEndpoint: getEnv("REVALIDATION_ENDPOINT", ""),
 	}
 
-	// Validate port is a valid number
-	if port, err := strconv.Atoi(config.TargetPort); err != nil || port < 1 || port > 65535 {
-		panic(fmt.Sprintf("TARGET_PORT must be a valid port number (1-65535), got: %s", config.TargetPort))
+	if config.TargetPort < 1 || config.TargetPort > 65535 {
+		return nil, fmt.Errorf("TARGET_PORT must be between 1 and 65535, got: %d", config.TargetPort)
 	}
 
-	return config
+	if config.PingInterval >= config.PingTimeout {
+		return nil, fmt.Errorf(
+			"PING_INTERVAL (%s) must be less than PING_TIMEOUT (%s)",
+			config.PingInterval, config.PingTimeout,
+		)
+	}
+
+	if config.ReadLimit < 1024 || config.ReadLimit > 10*1024*1024 {
+		return nil, fmt.Errorf("READ_LIMIT must be between 1024 and 10485760, got: %d", config.ReadLimit)
+	}
+
+	return config, nil
 }
 
 // TargetAddr returns the full target address in host:port format.
 func (c *Config) TargetAddr() string {
-	return fmt.Sprintf("%s:%s", c.TargetHost, c.TargetPort)
+	return fmt.Sprintf("%s:%d", c.TargetHost, c.TargetPort)
 }
 
 func getEnv(key, defaultValue string) string {

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -54,7 +55,8 @@ func TestMaxConnections(t *testing.T) {
 	tcpAddr, cleanupTCP := startEchoTCPServer(t)
 	defer cleanupTCP()
 
-	_, port, _ := net.SplitHostPort(tcpAddr)
+	_, portStr, _ := net.SplitHostPort(tcpAddr)
+	port, _ := strconv.Atoi(portStr)
 
 	config := testConfig()
 	config.TargetHost = "127.0.0.1"
@@ -87,7 +89,7 @@ func TestMaxConnections(t *testing.T) {
 func TestTCPDialFailure(t *testing.T) {
 	config := testConfig()
 	config.TargetHost = "127.0.0.1"
-	config.TargetPort = "1"
+	config.TargetPort = 1
 
 	server := NewServer(config, testLogger())
 	ts := httptest.NewServer(server.httpServer.Handler)
@@ -100,7 +102,7 @@ func TestTCPDialFailure(t *testing.T) {
 	}
 	defer ws.Close()
 
-	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	_, _, err = ws.ReadMessage()
 	if err == nil {

@@ -24,11 +24,12 @@ func testConfig() *Config {
 	return &Config{
 		ListenAddr:         ":0",
 		TargetHost:         "127.0.0.1",
-		TargetPort:         "0",
+		TargetPort:         0,
 		MaxSessionDuration: 5 * time.Second,
 		PingInterval:       1 * time.Second,
 		PingTimeout:        2 * time.Second,
 		MaxConnections:     2,
+		ReadLimit:          65536,
 	}
 }
 
@@ -62,5 +63,5 @@ func startEchoTCPServer(t *testing.T) (string, func()) {
 		}
 	}()
 
-	return listener.Addr().String(), func() { listener.Close() }
+	return listener.Addr().String(), func() { _ = listener.Close() }
 }
