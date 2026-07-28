@@ -87,7 +87,6 @@ func NewSession(
 // max duration, and runs the bridge. Blocks until the session ends.
 func (s *Session) Run(ctx context.Context) error {
 	ctx, s.cancel = context.WithCancel(ctx)
-	defer s.cancel()
 
 	startTime := time.Now()
 	defer func() {
@@ -127,7 +126,13 @@ func (s *Session) Run(ctx context.Context) error {
 	// Ping period must be less than pong timeout (gorilla best practice).
 	pingDone := make(chan struct{})
 	go s.pingLoop(ctx, bridge, pingDone)
-	defer func() { <-pingDone }()
+	// Cancel context first (unblocks pingLoop), then wait for it to exit.
+	// Defer runs LIFO: wait-for-ping runs, then cancel runs — wrong order.
+	// So we cancel explicitly before waiting.
+	defer func() {
+		s.cancel()
+		<-pingDone
+	}()
 
 	// TODO(revalidation): Start periodic re-validation loop here.
 	// When implemented, spawn a goroutine that calls s.revalidator.Revalidate(ctx)
